@@ -1,0 +1,30 @@
+La tesina del corso di Sistemi Operativi ha la seguente specifica:
+
+
+Elenco Telefonico:
+ 
+Realizzazione di un servizio "elenco telefonico" supportato da un server che
+gestisce sequenzialmente o in concorrenza (a scelta) le richieste dei client
+(residenti in generale su macchine diverse).
+
+L'applicazione client deve fornire le seguenti funzioni:
+1. Aggiunta di un record all'elenco telefonico (operazione
+   accessibile solo ad utenti autorizzati).
+2. Ricerca di un record all'interno dell'elenco telefonico
+  (anche in questo caso l'operazione deve essere accessibile solo
+  ad utenti autorizzati).
+ 
+Si precisa che la specifica richiede la realizzazione sia dell'applicazione
+client che di quella server.
+
+Si fa presente inoltre che l'insieme degli utenti autorizzati a consultare
+l'elenco telefonico non e' in generale coincidente con l'insieme
+degli utenti autorizzati a modificarlo.
+
+Per progetti misti Unix/Windows e' a scelta quale delle due applicazioni
+sviluppare per uno dei due sistemi.
+                                                                                           
+
+
+Per qualsiasi problema si puo' rivolgere al docente del corso utilizzando l'email francesco.quaglia@uniroma2.it
+
