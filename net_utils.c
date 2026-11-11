@@ -14,8 +14,8 @@ short int strtoport(char *port){ //es. "8080"
     printf("started strtoport\n");
 #endif
 
-    short int host = atoi(port); //HBO
-    short int net = htons(host); //NB0
+    short int host = atoi(port); // string -> num HBO/LE
+    short int net = htons(host); // num HBO/LE -> num NB0/BE
 
 #ifdef DEBUG
     printf("converted port is %d\n", net);
