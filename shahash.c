@@ -1,4 +1,4 @@
-#include <openssl/sha.h> //pppppp
+#include <openssl/sha.h> 
 #include <crypt.h>
 #include <stdio.h>
 #include <stdlib.h>
