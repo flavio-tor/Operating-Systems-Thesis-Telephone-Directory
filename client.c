@@ -1,6 +1,6 @@
 #include "net_utils.h"
 #include <errno.h>
-#include <crypt.h>
+//#include <crypt.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,14 +9,14 @@
 #include <sys/socket.h>
 #include <openssl/sha.h>
 #include "shahash.h"
-#define MAX_RESPONSE_LENGTH 20
-#define MAX_NAME 128
-#define MAX_UNAME 128
+#define MAX_RESPONSE_LENGTH 20 //lunghezza massima della risposta del server
+#define MAX_NAME 128 //numero massimo di caratteri per il nome del contatto
+#define MAX_UNAME 128 //numero massimo di caratteri per lo username
 #define PASS_LEN SHA512_DIGEST_LENGTH*2 // 128 = lunghezza in caratteri dell'hash esadecimale.
-#define MAX_NUM 20
-#define USER_ERROR 30
-#define CRYPT_ARG "$6$12345678$"
-#define flushstream(stdin) while(getchar() != '\n')
+#define MAX_NUM 20 //numero massimo di caratteri per il numero del contatto
+#define USER_ERROR 30 //codice di errore per errori dell'utente 
+//#define CRYPT_ARG "$6$12345678$" //argomento per la funzione crypt() per l'algoritmo SHA512
+#define flushstream(stdin) while(getchar() != '\n') //flush dello stdin
 
 void err_man(char *s){
     /*
