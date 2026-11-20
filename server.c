@@ -16,8 +16,8 @@
 #include "net_utils.h"
 #include <openssl/sha.h>
 #include <sys/time.h>
-#define gettid() syscall(SYS_gettid) //macro per ottenere il thread id del thread corrente
 
+#define gettid() syscall(SYS_gettid) //macro per ottenere il thread id del thread corrente
 #define ADDR "127.0.0.1"
 #define USER_ERROR 30
 #define BACKLOG_SIZE 5
@@ -30,7 +30,7 @@
 #define QUIT 3 //operazione di uscita dal programma
 #define EZERO 0 //codice di errore per socket chiuso (send() o recv() ritornano 0)
 
-sem_t write_file; //semaforo globale (condiviso tra i thread del processo) per la scrittura sul file dei contattitra i thread
+sem_t write_file; //semaforo globale (condiviso tra i thread del processo) per la scrittura sul file dei contatti tra i thread
 
 __thread char *tokenize; //variabile thread-local (ogni thread ha la sua copia) del puntatore per usare strtok_r in modo sicuro tra i thread 
 
@@ -147,7 +147,7 @@ void *server_thread(void *arg){
 		if (send(sockfd, mess, strlen(mess) + 1, 0) <= 0) thread_err("send()", sockfd);
 
 #ifdef DEBUG
-		printf("access failed\n", uname, pass);
+		printf("access failed for user %s\n", uname);
 #endif
 		goto login;
 
@@ -173,6 +173,7 @@ void *server_thread(void *arg){
 	
 	op_choose:
 
+	errno = 0;
 	if (recv(sockfd, &op, 1, 0) <= 0) thread_err("recv()", sockfd); //ricevi l'operazione
 	/*
 	 * 1) Trova il contatto
@@ -206,6 +207,7 @@ void *server_thread(void *arg){
 
 			if (send(sockfd, mess, strlen(mess) + 1, 0) <= 0) thread_err("send()", sockfd);
 		
+			errno = 0;
 			if ((name_len = recv(sockfd, name_buff, MAX_NAME, 0)) <= 0) thread_err("recv()", sockfd);
 
 			name_buff[name_len - 1] = '\0';
@@ -262,13 +264,15 @@ void *server_thread(void *arg){
                 //il contatto è già esistente
                 mess = "C_EXISTS";
                 
+				sem_post(&write_file); // Rilasciamo subito il semaforo prima della send()
+
                 if (send(sockfd, mess, strlen(mess) + 1, 0) <= 0) thread_err("send()", sockfd);
                 
-				sem_post(&write_file); // Rilasciamo il semaforo prima di tornare al loop
                 goto op_choose;
             }
 	
 			if (add_contact(name_buff, number_buff)){
+				sem_post(&write_file); 
 				thread_err("add_contact()", sockfd);
 			}
 
@@ -302,7 +306,8 @@ void *server_thread(void *arg){
 
 void setup_handler(){
 	/*
-	 * funzione che imposta il gestore del segnale SIGPIPE a SIG_IGN, così da non far terminare il processo in caso di socket chiuso
+	 * funzione che imposta il gestore del segnale SIGPIPE a SIG_IGN, così da evitare la chiusura del server se un client chiude il socket.
+	 * parametri: none. valore di ritorno: none
 	*/
 	
 	struct sigaction siga;
@@ -318,6 +323,10 @@ void setup_handler(){
 }
 
 int main(int argc, char **argv){
+	/*
+	 * funzione principale del server: inizializza il gestore dei segnali, il semaforo POSIX e il socket TCP in ascolto,
+	 * accettando continuamente nuove connessioni e assegnando ciascun client a un thread dedicato.
+	*/
 	
 	if (argc < 3){
 		fprintf(stderr, "usage: program_name address port\n");
@@ -360,10 +369,10 @@ int main(int argc, char **argv){
 	printf("initiating listening on %s:%s\n", argv[1], argv[2]);
 
 	//per forzare l'uso immediato della porta anche se è in TIME_WAIT:
-	//int opt = 1;
-	//if (setsockopt(main_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-    //	err_man("(main) setsockopt(SO_REUSEADDR)");
-	//}
+	int opt = 1;
+	if (setsockopt(main_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+    	err_man("(main) setsockopt(SO_REUSEADDR)");
+	}
 
 	if (bind(main_sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) err_man("(main) bind()"); //lega il socket creato all'indirizzo IP e alla porta specificati da stdin
 
@@ -374,7 +383,7 @@ int main(int argc, char **argv){
 	if (listen(main_sock, BACKLOG_SIZE) < 0) err_man("(main) listen");
 
 #ifdef DEBUG
-	printf("listen succeful\n");
+	printf("listen successful\n");
 #endif
 
 	Thrd_arg *thread_arg;

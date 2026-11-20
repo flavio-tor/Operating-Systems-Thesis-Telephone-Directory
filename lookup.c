@@ -17,8 +17,10 @@ char *access_file = "passwd"; //file delle password e dei permessi
 
 char *searchname(FILE *f, char *name, char **lookup_tok){
 /* 
- * funzione che cerca il nome fornito nel file dei contatti e restituisce 
- * la riga del file dove è memorizzato il nome già tokenizzata una volta
+ * funzione ausiliaria che cerca un nome all'inizio delle righe di un file CSV e restituisce la riga corrispondente già tokenizzata una volta.
+ * f: puntatore al file aperto in lettura. name: stringa contenente il nome da cercare.
+ * lookup_tok: puntatore di stato (saveptr) utilizzato da strtok_r per thread-safety.
+ * valore di ritorno: puntatore al buffer allocato dinamicamente contenente la riga trovata, oppure NULL se il nome non è presente.
 */
 
 	int exit_cycle = 0;
@@ -28,7 +30,7 @@ char *searchname(FILE *f, char *name, char **lookup_tok){
 
 	do{
     	if ((len = getline(&buff, &l, f)) < 0){
-        	if (feof(f)) exit_cycle = NOT_FOUND; //se arrivo alla fine del file senza trovare il nome, esco
+        	if (feof(f) || ferror(f)) exit_cycle = NOT_FOUND; //se arrivo alla fine del file senza trovare il nome, esco
         }
         else {
             curr = strtok_r(buff, ",", lookup_tok); //tokenizzo la riga letta (con versione thread-safe). Il primo token è il nome
@@ -49,8 +51,9 @@ char *searchname(FILE *f, char *name, char **lookup_tok){
 
 char *lookup_name(char *name){
 /* 
- * funzione che cerca un numero di telefono associato a un nome: apre il file dei contatti, 
- * cerca il nome e restituisce il numero di telefono associato.
+ * funzione che cerca un contatto nel file dei contatti e ne estrae il numero di telefono associato.
+ * name: stringa contenente il nome del contatto da cercare.
+ * valore di ritorno: puntatore a una nuova stringa allocata dinamicamente contenente il numero di telefono, oppure NULL se il contatto non esiste.
 */
 
 	if (name == NULL) return NULL;
@@ -74,16 +77,20 @@ char *lookup_name(char *name){
 
 	free(buff);
 
-	return ret; //return the phone number reallocated
+	return ret; //ritorno il numero di telefono re-allocato 
+	
 }
 
 int add_contact(char *name, char *number){
 /* 
- * funzione che aggiunge un nuovo contatto al file dei contatti in fondo al file. 
- * Ritorna 0 se l'operazione è andata a buon fine, -1 altrimenti.
-*/
+ * funzione che aggiunge un nuovo contatto in coda al file dei contatti nel formato CSV "nome,numero,\n".
+ * name: stringa contenente il nome del contatto da salvare.
+ * number: stringa contenente il numero di telefono da salvare.
+ * valore di ritorno: 0 se l'operazione è andata a buon fine, -1 in caso di errore.
+ */
 
 	FILE *f = fopen(contacts_file, "a");
+	if (f == NULL) return -1;
 
 	fprintf(f, "%s,%s,\n", name, number); //aggiungo il contatto al file dei contatti con il formato "nome,numero,\n" (uso virgola come separatore)
 	fflush(f);
@@ -100,7 +107,9 @@ int add_contact(char *name, char *number){
 
 int get_permissions(char *name){
 /* 
- * funzione che cerca l'username nel file delle password e restituisce i permessi associati a quell'utente. Ritorna -1 se non trova l'utente.
+ * funzione che cerca un utente nel file delle password e ne recupera il livello di permessi.
+ * name: stringa contenente lo username dell'utente.
+ * valore di ritorno: intero rappresentante i permessi, oppure -1 se l'utente non viene trovato.
 */
 	
 	FILE *f = fopen(access_file, "r");
@@ -127,8 +136,9 @@ int get_permissions(char *name){
 
 int lookup_access(char *uname, char *pass){
 /* 
- * funzione che verifica il login: cerca l'username, prende l'hash della password salvato nel file e 
- * lo confronta con quello che è arrivato dal client. Ritorna != 0 se non trova una corrispondenza valida
+ * funzione che verifica le credenziali di accesso confrontando l'hash salvato nel file delle password con quello ricevuto dal client.
+ * uname: stringa contenente lo username da autenticare. pass: stringa contenente l'hash esadecimale SHA-512 della password inviata dal client.
+ * valore di ritorno: 0 se username e password corrispondono, != 0 (1 o -1) se le creden
 */
 	
 	FILE *f = fopen(access_file, "r");

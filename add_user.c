@@ -1,8 +1,9 @@
 #include "shahash.h"
 #include <stdio.h>
-#include <openssl/sha.h>
-#include <crypt.h>
 #define flush(stdin) while(getchar() != '\n') //puliamo lo stdin (tasto invio)
+
+//programma amministrativo stand-alone che permette di registrare un nuovo utente nel file "passwd",
+//salvando lo username, l'hash SHA-512 della password e il livello di permessi.
 
 int main(){
 	
@@ -35,7 +36,7 @@ perms:
 
 	FILE *f = fopen("passwd", "a");
 
-	fprintf(f, "%s,%s,%d,\n", name, cr, perms); //formatto la riga come: nome,hash,permessi
+	fprintf(f, "%s,%s,%d,\n", name, cr, perms); //formatto la riga come: nome,hash,permessi,
 	fclose(f); 
 
 	return 0;

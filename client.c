@@ -1,6 +1,5 @@
 #include "net_utils.h"
 #include <errno.h>
-//#include <crypt.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,38 +7,41 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <openssl/sha.h>
-#include "shahash.h"
+#include "shahash.h" 
 #define MAX_RESPONSE_LENGTH 20 //lunghezza massima della risposta del server
 #define MAX_NAME 128 //numero massimo di caratteri per il nome del contatto
 #define MAX_UNAME 128 //numero massimo di caratteri per lo username
 #define PASS_LEN SHA512_DIGEST_LENGTH*2 // 128 = lunghezza in caratteri dell'hash esadecimale.
 #define MAX_NUM 20 //numero massimo di caratteri per il numero del contatto
 #define USER_ERROR 30 //codice di errore per errori dell'utente 
-//#define CRYPT_ARG "$6$12345678$" //argomento per la funzione crypt() per l'algoritmo SHA512
 #define flushstream(stdin) while(getchar() != '\n') //flush dello stdin
 
 void err_man(char *s){
     /*
-     * funzione di gestione degli errori: stampa un messaggio di errore 
-	 * e termina il programma. Non ha valore di ritorno.
+	 * funzione di gestione degli errori: stampa un messaggio di errore e termina il programma.
+	 * s: stringa descrittiva dell'operazione che ha generato l'errore. valore di ritorno: none
     */
     fprintf(stderr, "%s error; errno is %s. Exiting\n", s, strerror(errno));
     exit(EXIT_FAILURE);
 }
 
 void login_process(int sockfd){
-	 /*
-     * funzione che gestisce il processo di login: chiede username e password, li 
-	 * invia al server e riceve la risposta. Se l'accesso è negato, ripete il processo.
-     */
+	/*
+	 * funzione che gestisce il processo di login: chiede username e password, calcola l'hash SHA-512,
+	 * li invia al server e attende l'esito. Se le credenziali non sono valide, ripete la procedura.
+	 * sockfd: file descriptor del socket TCP connesso al server. valore di ritorno: none
+    */
    
-	char *temp_name, *uname, *pass, result[MAX_RESPONSE_LENGTH + 1];
-	char *encrypted;
+	char *temp_name; //puntatore alla stringa grezza dello username letta da stdin
+	char *uname; //puntatore allo username definitivo (da verificare e inviare al server)
+	char *pass; //puntatore alla password in chiaro digitata dall'utente -> privacy: rimane solo in memoria locale e non viene  inviata in rete.
+	char result[MAX_RESPONSE_LENGTH + 1]; //Buffer usato per ricevere dal server la stringa di esito dell'autenticazione: "ACCESS_GRANTED" oppure "INVALID_ACCESS".
+	char *encrypted; //puntatore al digest SHA-512 della password (formattato e inviato al server).
 
 	login:
 
     printf("Insert username (max %d chars): ", MAX_UNAME);
-	fflush(stdout); //NON SO PERCHÉ TENERLO DAVA PROBLEMI
+	fflush(stdout); 
 	scanf("%ms", &temp_name); //lettura username
 
 	uname = strndup(temp_name, MAX_UNAME);
@@ -59,7 +61,7 @@ void login_process(int sockfd){
 	}
 
     printf("Insert password: ");
-    fflush(stdout);
+    fflush(stdout); 
 	scanf("%ms", &pass);
 
 	encrypted = sha512_hash(pass); //criptazione della password
@@ -75,7 +77,7 @@ void login_process(int sockfd){
 
 	if(send(sockfd, send_buff, MAX_UNAME + PASS_LEN + 2, 0) < 0) err_man("send()"); //invio al server
 
-	if(recv(sockfd, result, MAX_RESPONSE_LENGTH, 0) < 0) err_man("recv()"); //ricezione della risposta
+	if(recv(sockfd, result, MAX_RESPONSE_LENGTH, 0) <= 0) err_man("recv()"); //ricezione della risposta
 
 	if (strcmp("ACCESS_GRANTED", result) != 0){ //se la risposta non è ACCESS_GRANTED, l'accesso è negato, libero quindi la memoria e ripeto il processo di login
 		printf("Invalid access credentials; try again\n");
@@ -97,9 +99,13 @@ void login_process(int sockfd){
 }
 
 int main(int argc, char **argv){
+	/*
+	 * funzione principale del client: inizializza il socket TCP, si connette al server, avvia il login
+	 * e gestisce il ciclo delle operazioni (ricerca, inserimento, uscita).
+	*/
 
     if (argc < 3){
-        perror("usage: program_name server_address server_port\n");
+        fprintf(stderr, "usage: program_name server_address server_port\n");
         exit(USER_ERROR);
     }
 
@@ -136,9 +142,17 @@ int main(int argc, char **argv){
 
     login_process(sockfd);
 
-	char op, response[MAX_RESPONSE_LENGTH + 1], name[MAX_NAME + 1], number[MAX_NUM + 1];
-	int int_op, response_len, name_len, num_len;
-	char send_buffer[MAX_NAME + MAX_NUM + 2];
+	char op; //carattere per comunicare operazione scelta dall'utente 
+	char response[MAX_RESPONSE_LENGTH + 1]; //Buffer per ricevere i messaggi di controllo dal server durante le operazioni: "OP_GRANT", "OP_NO_GRANT", "DONE", "C_EXISTS"
+	char name[MAX_NAME + 1]; //Buffer in cui viene letto da tastiera il nome del contatto da cercare (case 1) o da inserire (case 2).
+	char number[MAX_NUM + 1]; //Buffer usato in 2 modi: in case 1 riceve dal server il numero di telefono trovato; 
+							  //in case 2 memorizza il numero di telefono digitato dall'utente prima dell'invio.
+	int int_op; //intero letto da tastiera rappresentante l'operazione scelta dall'utente (1 = ricerca, 2 = inserimento, 3 = uscita)
+	int name_len; //lunghezza nome inserito dall'utente
+	int num_len; //lunghezza per numero da server (case 1) o numero da tastiera (case 2)
+	char send_buffer[MAX_NAME + MAX_NUM + 2]; //Buffer di invio di dimensione fissa (150 byte: 128 nome + 20 numero + 2 separatori :);
+											  //per formattare i dati nel formato nome:numero: e spedirli in un'unica send() al server.
+
 	//le informazioni saranno inviate nel formato: nome:numero, ma solamente nel caso in cui si abbia bisogno di inviare più di una stringa alla volta
 
     while(1){
@@ -170,7 +184,7 @@ int main(int argc, char **argv){
 		
 		if (send(sockfd, &op, 1, 0) < 0) err_man("send()");
 
-		if (recv(sockfd, response, MAX_RESPONSE_LENGTH, 0) < 0) err_man("recv()");
+		if (recv(sockfd, response, MAX_RESPONSE_LENGTH, 0) <= 0) err_man("recv()");
 
 		if (strcmp(response, "OP_GRANT") != 0){
 			printf("Operation not permitted; user doesn't have the permissions to perform %s\n", (int_op == 1 ? "read" : "write"));
@@ -200,7 +214,7 @@ int main(int argc, char **argv){
 
 				num_len = recv(sockfd, number, MAX_NUM, 0);
 
-				if (num_len < 0) err_man("recv()");
+				if (num_len <= 0) err_man("recv()");
 
 				if (strcmp(number, "NOT_FOUND") == 0){
 					printf("Contact was not found\n"); //se il contatto non esiste, stampa un messaggio di errore.
@@ -262,6 +276,7 @@ int main(int argc, char **argv){
 			case 3:
 
 				printf("Exiting; goodbye\n");
+				close(sockfd); //per sicurezza chiudo il socket prima di uscire
 				exit(0);
 				break;
 

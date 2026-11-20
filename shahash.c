@@ -1,11 +1,15 @@
 #include <openssl/sha.h> 
-#include <crypt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "shahash.h"
 #include <string.h>
 
 char* sha512_hash(const char* str) {
+    /*
+     * funzione che calcola l'hash crittografico SHA-512 di una stringa e lo converte in formato esadecimale.
+     * str: stringa in chiaro da crittografare.
+     * valore di ritorno: puntatore alla stringa esadecimale allocata dinamicamente (128 caratteri + '\0'), oppure NULL in caso di errore di allocazione.
+     */
     
     unsigned char hash[SHA512_DIGEST_LENGTH];  //buffer per hash binario
     
